@@ -1,3 +1,21 @@
+import { ActionFunction, redirect } from "@remix-run/node";
+import { db } from "~/utils/db.server";
+
+export let action: ActionFunction = async ({ request }) => {
+  let form = await request.formData();
+  let name = form.get("name");
+  let content = form.get("content");
+
+  if (typeof name !== "string" || typeof content !== "string") {
+    throw new Error("Form submitted incorrectly");
+  }
+
+  let joke = await db.joke.create({
+    data: { name, content },
+  });
+  return redirect(`/jokes/${joke.id}`);
+};
+
 export default function NewJokeRoute() {
   return (
     <div>
@@ -10,7 +28,7 @@ export default function NewJokeRoute() {
         </div>
         <div>
           <label>
-            Content: <input type="text" name="content" />
+            Content: <textarea name="content" />
           </label>
         </div>
         <div>
