@@ -1,9 +1,17 @@
-import type { ActionFunction } from "@remix-run/node";
+import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useActionData } from "@remix-run/react";
+import { useActionData, useCatch, Link } from "@remix-run/react";
 
 import { db } from "~/utils/db.server";
-import { requireUserId } from "~/utils/session.server";
+import { requireUserId, getUserId } from "~/utils/session.server";
+
+export const loader: LoaderFunction = async ({ request }) => {
+  const userId = await getUserId(request);
+  if (!userId) {
+    throw new Response("Unauthorized", { status: 401 });
+  }
+  return json({});
+};
 
 function validateJokeContent(content: string) {
   if (content.length < 10) {
@@ -33,10 +41,6 @@ const badRequest = (data: ActionData) => json(data, { status: 400 });
 
 export const action: ActionFunction = async ({ request }) => {
   const userId = await requireUserId(request);
-  if (!userId) {
-    return redirect("/login?redirectTo=/jokes/new");
-  }
-
   const form = await request.formData();
   const name = form.get("name");
   const content = form.get("content");
@@ -56,7 +60,7 @@ export const action: ActionFunction = async ({ request }) => {
   }
 
   const joke = await db.joke.create({
-    data: { name, content, jokesterId: userId },
+    data: { ...fields, jokesterId: userId },
   });
   return redirect(`/jokes/${joke.id}`);
 };
@@ -124,6 +128,19 @@ export default function NewJokeRoute() {
       </form>
     </div>
   );
+}
+
+export function CatchBoundary() {
+  const caught = useCatch();
+
+  if (caught.status === 401) {
+    return (
+      <div className="error-container">
+        <p>You must be logged in to create a joke.</p>
+        <Link to="/login">Login</Link>
+      </div>
+    );
+  }
 }
 
 export function ErrorBoundary() {
